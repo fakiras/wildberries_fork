@@ -1,0 +1,41 @@
+@startuml
+skinparam backgroundColor #FDFDFD
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+package "Сервисный бэкенд (gRPC)" {
+    [Promotion Service]     as PromoSrv
+    [Product Service]       as ProductSrv
+    [Booking Service]       as BookingSrv
+    [Horoscope Service]     as HoroscopeSrv
+    [Auction Service]       as AuctionSrv
+    [Kafka Consumer\n(product_updates)] as KafkaCons
+    [Kafka Producer\n(promo_events)]    as KafkaProd
+}
+
+node "PostgreSQL" as PG
+cloud "Kafka Cluster" {
+    [topic: product_updates] as TopicProdUpd
+    [topic: promo_events]   as TopicPromoEvt
+}
+
+TopicProdUpd ..> KafkaCons : consume
+KafkaCons --> ProductSrv :product updates
+
+PromoSrv --> KafkaProd : publish
+KafkaProd ..> TopicPromoEvt : send
+
+BookingSrv <--> PromoSrv
+AuctionSrv <--> BookingSrv
+HoroscopeSrv <--> PromoSrv
+AuctionSrv <--> ProductSrv
+HoroscopeSrv <--> ProductSrv
+
+PromoSrv     --> PG : CRUD promotions
+ProductSrv   --> PG : CRUD products
+BookingSrv   --> PG : CRUD bookings
+HoroscopeSrv --> PG : CRUD horoscopes, zodiacs
+AuctionSrv   --> PG : CRUD auctions, bets
+
+@enduml
