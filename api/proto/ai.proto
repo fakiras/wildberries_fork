@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package wildberries.ai.v1;
+
+option go_package = "wildberries/api/proto/ai/v1;aiv1";
+
+// --- POST /ai/themes ---
+message GenerateThemesRequest {}
+
+message ThemeItem {
+  string value = 1;  // machine name, e.g. zodiac, harry-potter
+  string label = 2;  // display name
+}
+
+message GenerateThemesResponse {
+  repeated ThemeItem themes = 1;
+}
+
+// --- POST /ai/segments ---
+message GenerateSegmentsRequest {
+  string theme = 1;
+  int32 limit = 2;
+}
+
+message SegmentSuggestion {
+  string name = 1;
+  string category_name = 2;
+}
+
+message GenerateSegmentsResponse {
+  repeated SegmentSuggestion segments = 1;
+}
+
+// --- POST /ai/questions ---
+message GenerateQuestionsRequest {
+  string theme = 1;
+}
+
+message QuestionSuggestion {
+  string text = 1;
+  repeated OptionSuggestion options = 2;
+}
+
+message OptionSuggestion {
+  string text = 1;
+  string value = 2;
+}
+
+message GenerateQuestionsResponse {
+  repeated QuestionSuggestion questions = 1;
+}
+
+// --- POST /ai/answer-tree ---
+message GenerateAnswerTreeRequest {
+  string theme = 1;
+}
+
+message AnswerTreeNode {
+  string node_id = 1;
+  string parent_node_id = 2;
+  string label = 3;
+  string value = 4;
+}
+
+message GenerateAnswerTreeResponse {
+  repeated AnswerTreeNode nodes = 1;
+}
+
+// --- POST /ai/get-text ---
+message GetTextRequest {
+  map<string, string> params = 1;  // e.g. theme, segment_name
+  int64 segment_id = 2;              // optional, для обновления текста сегмента
+}
+
+message GetTextResponse {
+  string text = 1;
+}
+
+// --- AI Service ---
+service AIService {
+  rpc GenerateThemes(GenerateThemesRequest) returns (GenerateThemesResponse);
+  rpc GenerateSegments(GenerateSegmentsRequest) returns (GenerateSegmentsResponse);
+  rpc GenerateQuestions(GenerateQuestionsRequest) returns (GenerateQuestionsResponse);
+  rpc GenerateAnswerTree(GenerateAnswerTreeRequest) returns (GenerateAnswerTreeResponse);
+  rpc GetText(GetTextRequest) returns (GetTextResponse);
+}

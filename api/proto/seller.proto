@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package wildberries.seller.v1;
+
+option go_package = "wildberries/api/proto/seller/v1;sellerv1";
+
+// --- GET /products/list-by — список продуктов селлера ---
+message ListProductsByRequest {
+  // seller_id берётся из контекста (внешний ID из другой системы)
+  string category_id = 1;  // optional filter
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message ProductListItem {
+  int64 id = 1;
+  int64 nm_id = 2;
+  string category_name = 3;
+  string name = 4;
+  string image = 5;
+  int64 price = 6;
+  int32 discount = 7;
+}
+
+message ListProductsByResponse {
+  repeated ProductListItem items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+// --- GET /seller/actions — доступные акции для селлера ---
+message GetSellerActionsRequest {}
+
+message SellerActionSummary {
+  int64 id = 1;
+  string name = 2;
+  string status = 3;
+  string date_from = 4;
+  string date_to = 5;
+  string category_hint = 6;
+  string theme = 7;
+}
+
+message GetSellerActionsResponse {
+  repeated SellerActionSummary actions = 1;
+}
+
+// --- GET /seller/bets/list — ставки/заявки селлера ---
+message GetSellerBetsListRequest {
+  int64 promotion_id = 1;  // optional filter
+  string status = 2;       // optional
+}
+
+message SellerBetItem {
+  int64 id = 1;            // slot/bet/application id
+  int64 promotion_id = 2;
+  int64 segment_id = 3;
+  int64 slot_id = 4;
+  int64 bet = 5;           // для аукциона
+  int64 price = 6;         // для фиксированного
+  string status = 7;       // available, pending, moderation, occupied, rejected
+  string product_name = 8;
+}
+
+message GetSellerBetsListResponse {
+  repeated SellerBetItem items = 1;
+}
+
+// --- POST /seller/bets/make ---
+message MakeBetRequest {
+  int64 slot_id = 1;
+  int64 amount = 2;  // для аукциона — сумма ставки
+  ProductForSlot product = 3;  // для фиксированной цены
+}
+
+message ProductForSlot {
+  string name = 1;
+  int64 price = 2;
+  int32 discount = 3;
+  string image = 4;
+}
+
+message MakeBetResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// --- POST /seller/bets/remove ---
+message RemoveBetRequest {
+  int64 slot_id = 1;
+}
+
+message RemoveBetResponse {
+  bool success = 1;
+}
+
+// --- Seller Services ---
+service SellerProductService {
+  rpc ListProductsBy(ListProductsByRequest) returns (ListProductsByResponse);
+}
+
+service SellerActionsService {
+  rpc GetSellerActions(GetSellerActionsRequest) returns (GetSellerActionsResponse);
+}
+
+service SellerBetsService {
+  rpc GetSellerBetsList(GetSellerBetsListRequest) returns (GetSellerBetsListResponse);
+  rpc MakeBet(MakeBetRequest) returns (MakeBetResponse);
+  rpc RemoveBet(RemoveBetRequest) returns (RemoveBetResponse);
+}
