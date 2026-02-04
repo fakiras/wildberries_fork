@@ -1,8 +1,25 @@
 syntax = "proto3";
 
-package wildberries.ai.v1;
+package wildberries.ai;
 
-option go_package = "wildberries/api/proto/ai/v1;aiv1";
+option go_package = "wildberries/pkg/ai;ai";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "AI сервис";
+    version: "1.0.0";
+    description: "Сервис генерации тем, сегментов, вопросов и дерева ответов";
+  };
+  host: "localhost:7003";
+  schemes: HTTP;
+  consumes: "application/json";
+  produces: "application/json";
+};
 
 // --- POST /ai/themes ---
 message GenerateThemesRequest {}
@@ -78,9 +95,64 @@ message GetTextResponse {
 
 // --- AI Service ---
 service AIService {
-  rpc GenerateThemes(GenerateThemesRequest) returns (GenerateThemesResponse);
-  rpc GenerateSegments(GenerateSegmentsRequest) returns (GenerateSegmentsResponse);
-  rpc GenerateQuestions(GenerateQuestionsRequest) returns (GenerateQuestionsResponse);
-  rpc GenerateAnswerTree(GenerateAnswerTreeRequest) returns (GenerateAnswerTreeResponse);
-  rpc GetText(GetTextRequest) returns (GetTextResponse);
+  rpc GenerateThemes(GenerateThemesRequest) returns (GenerateThemesResponse) {
+    option (google.api.http) = {
+      post: "/ai/themes"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать темы";
+      description: "Генерирует список тем для использования в акциях";
+      tags: "AI";
+      operation_id: "GenerateThemes";
+    };
+  }
+  rpc GenerateSegments(GenerateSegmentsRequest) returns (GenerateSegmentsResponse) {
+    option (google.api.http) = {
+      post: "/ai/segments"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать сегменты";
+      description: "Генерирует предложения сегментов на основе темы";
+      tags: "AI";
+      operation_id: "GenerateSegments";
+    };
+  }
+  rpc GenerateQuestions(GenerateQuestionsRequest) returns (GenerateQuestionsResponse) {
+    option (google.api.http) = {
+      post: "/ai/questions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать вопросы";
+      description: "Генерирует вопросы для опроса на основе темы";
+      tags: "AI";
+      operation_id: "GenerateQuestions";
+    };
+  }
+  rpc GenerateAnswerTree(GenerateAnswerTreeRequest) returns (GenerateAnswerTreeResponse) {
+    option (google.api.http) = {
+      post: "/ai/answer-tree"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать дерево ответов";
+      description: "Генерирует дерево ответов для опроса";
+      tags: "AI";
+      operation_id: "GenerateAnswerTree";
+    };
+  }
+  rpc GetText(GetTextRequest) returns (GetTextResponse) {
+    option (google.api.http) = {
+      post: "/ai/get-text"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить текст";
+      description: "Получает текст для сегмента или акции";
+      tags: "AI";
+      operation_id: "GetText";
+    };
+  }
 }

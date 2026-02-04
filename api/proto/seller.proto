@@ -1,15 +1,32 @@
 syntax = "proto3";
 
-package wildberries.seller.v1;
+package wildberries.seller;
 
-option go_package = "wildberries/api/proto/seller/v1;sellerv1";
+option go_package = "wildberries/pkg/seller;seller";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Seller сервис";
+    version: "1.0.0";
+    description: "Сервис селлера для работы с акциями";
+  };
+  host: "localhost:7004";
+  schemes: HTTP;
+  consumes: "application/json";
+  produces: "application/json";
+};
 
 // --- GET /products/list-by — список продуктов селлера ---
 message ListProductsByRequest {
-  // seller_id берётся из контекста (внешний ID из другой системы)
   string category_id = 1;  // optional filter
-  int32 page = 2;
-  int32 per_page = 3;
+  int64 seller_id = 2;
+  int32 page = 3;
+  int32 per_page = 4;
 }
 
 message ProductListItem {
@@ -30,7 +47,9 @@ message ListProductsByResponse {
 }
 
 // --- GET /seller/actions — доступные акции для селлера ---
-message GetSellerActionsRequest {}
+message GetSellerActionsRequest {
+  int64 seller_id = 1;
+}
 
 message SellerActionSummary {
   int64 id = 1;
@@ -50,6 +69,7 @@ message GetSellerActionsResponse {
 message GetSellerBetsListRequest {
   int64 promotion_id = 1;  // optional filter
   string status = 2;       // optional
+  int64 seller_id = 3;
 }
 
 message SellerBetItem {
@@ -69,9 +89,10 @@ message GetSellerBetsListResponse {
 
 // --- POST /seller/bets/make ---
 message MakeBetRequest {
-  int64 slot_id = 1;
-  int64 amount = 2;  // для аукциона — сумма ставки
-  ProductForSlot product = 3;  // для фиксированной цены
+  int64 seller_id = 1;
+  int64 slot_id = 2;
+  int64 amount = 3;  // для аукциона — сумма ставки
+  ProductForSlot product = 4;  // для фиксированной цены
 }
 
 message ProductForSlot {
@@ -89,6 +110,7 @@ message MakeBetResponse {
 // --- POST /seller/bets/remove ---
 message RemoveBetRequest {
   int64 slot_id = 1;
+  int64 seller_id = 2;
 }
 
 message RemoveBetResponse {
@@ -97,15 +119,67 @@ message RemoveBetResponse {
 
 // --- Seller Services ---
 service SellerProductService {
-  rpc ListProductsBy(ListProductsByRequest) returns (ListProductsByResponse);
+  rpc ListProductsBy(ListProductsByRequest) returns (ListProductsByResponse) {
+    option (google.api.http) = {
+      get: "/products/list-by"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить список продуктов селлера";
+      description: "Получает список продуктов селлера по заданным параметрам";
+      tags: "Products";
+      operation_id: "ListProductsBy";
+    };
+  }
 }
 
 service SellerActionsService {
-  rpc GetSellerActions(GetSellerActionsRequest) returns (GetSellerActionsResponse);
+  rpc GetSellerActions(GetSellerActionsRequest) returns (GetSellerActionsResponse) {
+    option (google.api.http) = {
+      get: "/seller/actions"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить доступные акции для селлера";
+      description: "Получает список доступных акций для селлера";
+      tags: "Actions";
+      operation_id: "GetSellerActions";
+    };
+  }
 }
 
 service SellerBetsService {
-  rpc GetSellerBetsList(GetSellerBetsListRequest) returns (GetSellerBetsListResponse);
-  rpc MakeBet(MakeBetRequest) returns (MakeBetResponse);
-  rpc RemoveBet(RemoveBetRequest) returns (RemoveBetResponse);
+  rpc GetSellerBetsList(GetSellerBetsListRequest) returns (GetSellerBetsListResponse) {
+    option (google.api.http) = {
+      get: "/seller/bets/list"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить список ставок селлера";
+      description: "Получает список ставок селлера по заданным параметрам";
+      tags: "Bets";
+      operation_id: "GetSellerBetsList";
+    };
+  }
+  rpc MakeBet(MakeBetRequest) returns (MakeBetResponse) {
+    option (google.api.http) = {
+      post: "/seller/bets/make"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сделать ставку";
+      description: "Создает новую ставку на слот";
+      tags: "Bets";
+      operation_id: "MakeBet";
+    };
+  }
+  rpc RemoveBet(RemoveBetRequest) returns (RemoveBetResponse) {
+    option (google.api.http) = {
+      post: "/seller/bets/remove"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Удалить ставку";
+      description: "Удаляет существующую ставку";
+      tags: "Bets";
+      operation_id: "RemoveBet";
+    };
+  }
 }
