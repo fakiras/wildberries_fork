@@ -2,114 +2,155 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
 
+	admin_api "wildberries/internal/api/admin"
+	ai_api "wildberries/internal/api/ai"
+	buyer_api "wildberries/internal/api/buyer"
+	seller_api "wildberries/internal/api/seller"
 	"wildberries/internal/config"
-	"wildberries/internal/handler"
 	"wildberries/internal/repository"
-	"wildberries/internal/service"
+	"wildberries/internal/service/ai"
+	"wildberries/internal/service/buyer"
+	"wildberries/internal/service/promotion"
+	"wildberries/internal/service/seller"
+	adminpb "wildberries/pkg/admin"
+	aipb "wildberries/pkg/ai"
+	buyerpb "wildberries/pkg/buyer"
+	sellerpb "wildberries/pkg/seller"
 )
 
 type App struct {
-	cfg    *config.Config
-	pool   *pgxpool.Pool
-	router *chi.Mux
+	cfg  *config.Config
+	pool *pgxpool.Pool
+
+	// API services
+	adminAPI  *admin_api.Service
+	buyerAPI  *buyer_api.Service
+	sellerAPI *seller_api.Service
+	aiAPI     *ai_api.Service
+
+	// gRPC gateway mux
+	gwmux *runtime.ServeMux
 }
 
 func New(ctx context.Context, cfg *config.Config) (*App, error) {
+	// Create database connection pool
 	pool, err := pgxpool.New(ctx, cfg.DSN)
 	if err != nil {
-		return nil, fmt.Errorf("pgxpool.New: %w", err)
-	}
-	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("db ping: %w", err)
+		return nil, err
 	}
 
-	// Repositories
-	promoRepo := repository.NewPromotionPostgres(pool)
-	segRepo := repository.NewSegmentPostgres(pool)
+	// Create repositories
+	promotionRepo := repository.NewPromotionPostgres(pool)
+	segmentRepo := repository.NewSegmentPostgres(pool)
 	slotRepo := repository.NewSlotPostgres(pool)
 	productRepo := repository.NewProductPostgres(pool)
-	modRepo := repository.NewModerationPostgres(pool)
-	pollRepo := repository.NewPollPostgres(pool)
-	auctionRepo := repository.NewAuctionPostgres(pool)
+	moderationRepo := repository.NewModerationPostgres(pool)
 	betRepo := repository.NewBetPostgres(pool)
+	auctionRepo := repository.NewAuctionPostgres(pool)
 
-	// Services
-	promoSvc := service.NewPromotionService(promoRepo, segRepo)
-	segSvc := service.NewSegmentService(segRepo)
-	productSvc := service.NewProductService(productRepo)
-	slotSvc := service.NewSlotService(slotRepo, modRepo, auctionRepo, betRepo)
-	modSvc := service.NewModerationService(modRepo, slotRepo)
-	identSvc := service.NewIdentificationService(promoRepo, pollRepo, segRepo)
-	aiSvc := service.NewAIService()
+	// Create services
+	promotionService := promotion.New(
+		promotionRepo,
+		segmentRepo,
+		slotRepo,
+		productRepo,
+		moderationRepo,
+	)
 
-	// Handlers
-	buyerH := handler.NewBuyerHandler(promoSvc, segSvc, slotSvc, productSvc, identSvc)
-	adminH := handler.NewAdminHandler(promoSvc, segSvc, slotSvc, modSvc, identSvc, aiSvc)
-	sellerH := handler.NewSellerHandler(productSvc, promoSvc, slotSvc)
-	aiH := handler.NewAIHandler(aiSvc, segSvc)
+	buyerService := buyer.New(productRepo)
+	sellerService := seller.New(productRepo, betRepo, auctionRepo)
+	aiService := ai.New()
 
-	r := chi.NewRouter()
-	r.Route("/promotions", func(r chi.Router) {
-		r.Get("/current", buyerH.GetCurrentPromotion)
-		r.Get("/{promotionId}/segments/{segmentId}/products", buyerH.GetSegmentProducts)
-	})
-	r.Route("/identification", func(r chi.Router) {
-		r.Post("/start", buyerH.StartIdentification)
-		r.Post("/answer", buyerH.Answer)
-	})
+	// Create API services
+	adminAPIService := admin_api.New(promotionService)
+	buyerAPIService := buyer_api.New(buyerService)
+	sellerAPIService := seller_api.New(sellerService)
+	aiAPIService := ai_api.New(aiService)
 
-	r.Route("/admin", func(r chi.Router) {
-		r.Post("/promotions", adminH.CreatePromotion)
-		r.Get("/promotions/{id}", adminH.GetPromotion)
-		r.Patch("/promotions/{id}", adminH.UpdatePromotion)
-		r.Delete("/promotions/{id}", adminH.DeletePromotion)
-		r.Put("/promotions/{id}/fixed-prices", adminH.SetFixedPrices)
-		r.Put("/promotions/{id}/status", adminH.ChangeStatus)
-		r.Get("/promotions/{id}/moderation/applications", adminH.GetModerationApplications)
-		r.Post("/promotions/{id}/segments/generate", adminH.GenerateSegments)
-		r.Post("/promotions/{id}/segments", adminH.CreateSegment)
-		r.Patch("/promotions/{id}/segments/{segmentId}", adminH.UpdateSegment)
-		r.Delete("/promotions/{id}/segments/{segmentId}", adminH.DeleteSegment)
-		r.Post("/promotions/{id}/segments/shuffle-categories", adminH.ShuffleSegmentCategories)
-		r.Post("/promotions/{id}/poll/generate", adminH.GeneratePoll)
-		r.Post("/promotions/{id}/poll/questions", adminH.SetPollQuestions)
-		r.Post("/promotions/{id}/poll/answer-tree", adminH.SetAnswerTree)
-		r.Post("/moderation/{applicationId}/approve", adminH.ApproveModeration)
-		r.Post("/moderation/{applicationId}/reject", adminH.RejectModeration)
-	})
-	r.Post("/horoscope/products", adminH.SetSlotProduct)
+	// Create gRPC gateway mux
+	gwmux := runtime.NewServeMux()
 
-	r.Route("/seller", func(r chi.Router) {
-		r.Get("/actions", sellerH.GetSellerActions)
-		r.Get("/bets/list", sellerH.GetSellerBetsList)
-		r.Post("/bets/make", sellerH.MakeBet)
-		r.Post("/bets/remove", sellerH.RemoveBet)
-	})
-	r.Get("/products/list-by", sellerH.ListProductsBy)
+	app := &App{
+		cfg:       cfg,
+		pool:      pool,
+		adminAPI:  adminAPIService,
+		buyerAPI:  buyerAPIService,
+		sellerAPI: sellerAPIService,
+		aiAPI:     aiAPIService,
+		gwmux:     gwmux,
+	}
 
-	r.Route("/ai", func(r chi.Router) {
-		r.Post("/themes", aiH.GenerateThemes)
-		r.Post("/segments", aiH.GenerateSegments)
-		r.Post("/questions", aiH.GenerateQuestions)
-		r.Post("/answer-tree", aiH.GenerateAnswerTree)
-		r.Post("/get-text", aiH.GetText)
-	})
+	return app, nil
+}
 
-	return &App{
-		cfg:    cfg,
-		pool:   pool,
-		router: r,
-	}, nil
+func (a *App) SetupGatewayHandlers(ctx context.Context) error {
+	// Connect to gRPC server
+	grpcConn, err := grpc.DialContext(ctx,
+		"localhost:"+string(rune(a.cfg.GRPCPort)),
+		grpc.WithInsecure(),
+		grpc.FailOnNonTempDialError(true),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Register gRPC gateway handlers
+	err = adminpb.RegisterPromotionAdminServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = adminpb.RegisterSegmentAdminServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = adminpb.RegisterPollAdminServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = adminpb.RegisterModerationServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+
+	err = buyerpb.RegisterBuyerPromotionServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = buyerpb.RegisterIdentificationServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+
+	err = sellerpb.RegisterSellerProductServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = sellerpb.RegisterSellerActionsServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+	err = sellerpb.RegisterSellerBetsServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+
+	err = aipb.RegisterAIServiceHandler(ctx, a.gwmux, grpcConn)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.router.ServeHTTP(w, r)
+	// Delegate to gRPC gateway
+	a.gwmux.ServeHTTP(w, r)
 }
 
 func (a *App) Shutdown(ctx context.Context) {

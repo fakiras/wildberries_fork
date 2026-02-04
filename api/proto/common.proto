@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package wildberries.common.v1;
+package wildberries.common;
 
-option go_package = "wildberries/api/proto/common/v1;commonv1";
+option go_package = "wildberries/pkg/common;common";
 
 // Segment — сегмент акции (знак зодиака, факультет и т.д.)
 message Segment {

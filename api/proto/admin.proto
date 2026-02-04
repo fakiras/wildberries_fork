@@ -1,10 +1,26 @@
 syntax = "proto3";
 
-package wildberries.admin.v1;
+package wildberries.admin;
 
+option go_package = "wildberries/pkg/admin;admin";
+
+import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
-option go_package = "wildberries/api/proto/admin/v1;adminv1";
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Сервис управления заказами для ПВЗ";
+    version: "1.0.0";
+    description: "Сервис выполняет функции для выдачи, добавления, возврата и просмотра заказов";
+  };
+  host: "localhost:7002";
+  schemes: HTTP;
+  consumes: "application/json";
+  produces: "application/json";
+};
 
 // --- Promotion Admin ---
 // POST /admin/promotions
@@ -146,7 +162,7 @@ message GenerateSegmentsRequest {
 }
 
 message GenerateSegmentsResponse {
-  repeated wildberries.common.v1.Segment segments = 1;
+  repeated common.Segment segments = 1;
 }
 
 // POST /admin/promotions/{id}/segments
@@ -267,31 +283,225 @@ message RejectModerationResponse {}
 
 // --- Admin Services ---
 service PromotionAdminService {
-  rpc CreatePromotion(CreatePromotionRequest) returns (CreatePromotionResponse);
-  rpc GetPromotion(GetPromotionRequest) returns (GetPromotionResponse);
-  rpc UpdatePromotion(UpdatePromotionRequest) returns (UpdatePromotionResponse);
-  rpc DeletePromotion(DeletePromotionRequest) returns (DeletePromotionResponse);
-  rpc SetFixedPrices(SetFixedPricesRequest) returns (SetFixedPricesResponse);
-  rpc ChangeStatus(ChangeStatusRequest) returns (ChangeStatusResponse);
-  rpc SetSlotProduct(SetSlotProductRequest) returns (SetSlotProductResponse);
+  rpc CreatePromotion(CreatePromotionRequest) returns (CreatePromotionResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Создать новую акцию";
+      description: "Создает новую акцию с заданными параметрами";
+      tags: "Promotions";
+      operation_id: "CreatePromotion";
+    };
+  }
+  rpc GetPromotion(GetPromotionRequest) returns (GetPromotionResponse) {
+    option (google.api.http) = {
+      get: "/admin/promotions/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить информацию об акции";
+      description: "Получает информацию об акции по ID";
+      tags: "Promotions";
+      operation_id: "GetPromotion";
+    };
+  }
+  rpc UpdatePromotion(UpdatePromotionRequest) returns (UpdatePromotionResponse) {
+    option (google.api.http) = {
+      patch: "/admin/promotions/{id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Обновить акцию";
+      description: "Обновляет параметры акции";
+      tags: "Promotions";
+      operation_id: "UpdatePromotion";
+    };
+  }
+  rpc DeletePromotion(DeletePromotionRequest) returns (DeletePromotionResponse) {
+    option (google.api.http) = {
+      delete: "/admin/promotions/{id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Удалить акцию";
+      description: "Удаляет акцию по ID";
+      tags: "Promotions";
+      operation_id: "DeletePromotion";
+    };
+  }
+  rpc SetFixedPrices(SetFixedPricesRequest) returns (SetFixedPricesResponse) {
+    option (google.api.http) = {
+      put: "/admin/promotions/{promotion_id}/fixed-prices"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Установить фиксированные цены";
+      description: "Устанавливает фиксированные цены для слотов акции";
+      tags: "Promotions";
+      operation_id: "SetFixedPrices";
+    };
+  }
+  rpc ChangeStatus(ChangeStatusRequest) returns (ChangeStatusResponse) {
+    option (google.api.http) = {
+      put: "/admin/promotions/{promotion_id}/status"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Изменить статус акции";
+      description: "Изменяет статус акции";
+      tags: "Promotions";
+      operation_id: "ChangeStatus";
+    };
+  }
+  rpc SetSlotProduct(SetSlotProductRequest) returns (SetSlotProductResponse) {
+    option (google.api.http) = {
+      post: "/horoscope/products"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Установить продукт в слот";
+      description: "Ручная установка товара в слот";
+      tags: "Promotions";
+      operation_id: "SetSlotProduct";
+    };
+  }
 }
 
 service SegmentAdminService {
-  rpc GenerateSegments(GenerateSegmentsRequest) returns (GenerateSegmentsResponse);
-  rpc CreateSegment(CreateSegmentRequest) returns (CreateSegmentResponse);
-  rpc UpdateSegment(UpdateSegmentRequest) returns (UpdateSegmentResponse);
-  rpc DeleteSegment(DeleteSegmentRequest) returns (DeleteSegmentResponse);
-  rpc ShuffleSegmentCategories(ShuffleSegmentCategoriesRequest) returns (ShuffleSegmentCategoriesResponse);
+  rpc GenerateSegments(GenerateSegmentsRequest) returns (GenerateSegmentsResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/segments/generate"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать сегменты";
+      description: "Генерирует сегменты для акции";
+      tags: "Segments";
+      operation_id: "GenerateSegments";
+    };
+  }
+  rpc CreateSegment(CreateSegmentRequest) returns (CreateSegmentResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/segments"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Создать сегмент";
+      description: "Создает новый сегмент для акции";
+      tags: "Segments";
+      operation_id: "CreateSegment";
+    };
+  }
+  rpc UpdateSegment(UpdateSegmentRequest) returns (UpdateSegmentResponse) {
+    option (google.api.http) = {
+      patch: "/admin/promotions/{promotion_id}/segments/{segment_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Обновить сегмент";
+      description: "Обновляет параметры сегмента";
+      tags: "Segments";
+      operation_id: "UpdateSegment";
+    };
+  }
+  rpc DeleteSegment(DeleteSegmentRequest) returns (DeleteSegmentResponse) {
+    option (google.api.http) = {
+      delete: "/admin/promotions/{promotion_id}/segments/{segment_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Удалить сегмент";
+      description: "Удаляет сегмент по ID";
+      tags: "Segments";
+      operation_id: "DeleteSegment";
+    };
+  }
+  rpc ShuffleSegmentCategories(ShuffleSegmentCategoriesRequest) returns (ShuffleSegmentCategoriesResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/segments/shuffle-categories"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Перемешать категории сегментов";
+      description: "Перемешивает категории сегментов";
+      tags: "Segments";
+      operation_id: "ShuffleSegmentCategories";
+    };
+  }
 }
 
 service PollAdminService {
-  rpc GeneratePoll(GeneratePollRequest) returns (GeneratePollResponse);
-  rpc SetPollQuestions(SetPollQuestionsRequest) returns (SetPollQuestionsResponse);
-  rpc SetAnswerTree(SetAnswerTreeRequest) returns (SetAnswerTreeResponse);
+  rpc GeneratePoll(GeneratePollRequest) returns (GeneratePollResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/poll/generate"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Сгенерировать опрос";
+      description: "Генерирует структуру опроса для акции";
+      tags: "Poll";
+      operation_id: "GeneratePoll";
+    };
+  }
+  rpc SetPollQuestions(SetPollQuestionsRequest) returns (SetPollQuestionsResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/poll/questions"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Установить вопросы опроса";
+      description: "Устанавливает вопросы опроса для акции";
+      tags: "Poll";
+      operation_id: "SetPollQuestions";
+    };
+  }
+  rpc SetAnswerTree(SetAnswerTreeRequest) returns (SetAnswerTreeResponse) {
+    option (google.api.http) = {
+      post: "/admin/promotions/{promotion_id}/poll/answer-tree"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Установить дерево ответов";
+      description: "Устанавливает дерево ответов для опроса";
+      tags: "Poll";
+      operation_id: "SetAnswerTree";
+    };
+  }
 }
 
 service ModerationService {
-  rpc GetApplications(GetModerationApplicationsRequest) returns (GetModerationApplicationsResponse);
-  rpc Approve(ApproveModerationRequest) returns (ApproveModerationResponse);
-  rpc Reject(RejectModerationRequest) returns (RejectModerationResponse);
+  rpc GetApplications(GetModerationApplicationsRequest) returns (GetModerationApplicationsResponse) {
+    option (google.api.http) = {
+      get: "/admin/promotions/{promotion_id}/moderation/applications"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить заявки на модерацию";
+      description: "Получает список заявок на модерацию для акции";
+      tags: "Moderation";
+      operation_id: "GetApplications";
+    };
+  }
+  rpc Approve(ApproveModerationRequest) returns (ApproveModerationResponse) {
+    option (google.api.http) = {
+      post: "/admin/moderation/{application_id}/approve"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Одобрить заявку";
+      description: "Одобрение заявки на модерацию";
+      tags: "Moderation";
+      operation_id: "Approve";
+    };
+  }
+  rpc Reject(RejectModerationRequest) returns (RejectModerationResponse) {
+    option (google.api.http) = {
+      post: "/admin/moderation/{application_id}/reject"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Отклонить заявку";
+      description: "Отклонение заявки на модерацию";
+      tags: "Moderation";
+      operation_id: "Reject";
+    };
+  }
 }

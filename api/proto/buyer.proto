@@ -1,10 +1,15 @@
 syntax = "proto3";
 
-package wildberries.buyer.v1;
+package wildberries.buyer;
 
+
+option go_package = "wildberries/pkg/buyer;buyer";
+
+import "google/protobuf/timestamp.proto";
 import "common.proto";
-
-option go_package = "wildberries/api/proto/buyer/v1;buyerv1";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
 // --- Buyer: текущая акция ---
 // GET /promotions/current
@@ -18,7 +23,7 @@ message GetCurrentPromotionResponse {
   string status = 5;  // RUNNING
   string date_from = 6;  // RFC3339
   string date_to = 7;
-  repeated wildberries.common.v1.Segment segments = 8;
+  repeated wildberries.common.Segment segments = 8;
 }
 
 // --- Buyer: продукты сегмента ---
@@ -34,7 +39,7 @@ message GetSegmentProductsRequest {
 }
 
 message GetSegmentProductsResponse {
-  repeated wildberries.common.v1.ProductItem items = 1;
+  repeated wildberries.common.ProductItem items = 1;
   int32 total = 2;
   int32 page = 3;
   int32 per_page = 4;
@@ -85,11 +90,53 @@ message AnswerResponse {
 
 // --- Buyer API Service ---
 service BuyerPromotionService {
-  rpc GetCurrentPromotion(GetCurrentPromotionRequest) returns (GetCurrentPromotionResponse);
-  rpc GetSegmentProducts(GetSegmentProductsRequest) returns (GetSegmentProductsResponse);
+  rpc GetCurrentPromotion(GetCurrentPromotionRequest) returns (GetCurrentPromotionResponse) {
+    option (google.api.http) = {
+      get: "/promotions/current"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить текущую акцию";
+      description: "Получает информацию о текущей акции";
+      tags: "Promotions";
+      operation_id: "GetCurrentPromotion";
+    };
+  }
+  rpc GetSegmentProducts(GetSegmentProductsRequest) returns (GetSegmentProductsResponse) {
+    option (google.api.http) = {
+      get: "/promotions/{promotion_id}/segments/{segment_id}/products"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Получить продукты сегмента";
+      description: "Получает список продуктов для заданного сегмента";
+      tags: "Products";
+      operation_id: "GetSegmentProducts";
+    };
+  }
 }
 
 service IdentificationService {
-  rpc StartIdentification(StartIdentificationRequest) returns (StartIdentificationResponse);
-  rpc Answer(AnswerRequest) returns (AnswerResponse);
+  rpc StartIdentification(StartIdentificationRequest) returns (StartIdentificationResponse) {
+    option (google.api.http) = {
+      post: "/identification/start"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Начать идентификацию";
+      description: "Начинает процесс идентификации покупателя";
+      tags: "Identification";
+      operation_id: "StartIdentification";
+    };
+  }
+  rpc Answer(AnswerRequest) returns (AnswerResponse) {
+    option (google.api.http) = {
+      post: "/identification/answer"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Ответить на вопрос";
+      description: "Отвечает на вопрос опроса";
+      tags: "Identification";
+      operation_id: "Answer";
+    };
+  }
 }

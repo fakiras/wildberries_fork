@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"wildberries/internal/app"
 	"wildberries/internal/config"
@@ -22,20 +23,36 @@ func main() {
 	}
 	defer application.Shutdown(context.Background())
 
-	addr := fmt.Sprintf(":%d", cfg.HTTPPort)
-	srv := &http.Server{Addr: addr, Handler: application}
+	// Setup gRPC gateway handlers
+	if err := application.SetupGatewayHandlers(ctx); err != nil {
+		log.Fatalf("Failed to setup gateway handlers: %v", err)
+	}
 
+	// Start gRPC server
 	go func() {
-		log.Printf("listening on %s", addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("server: %v", err)
+		log.Printf("gRPC server listening on port %d", cfg.GRPCPort)
+		if err := application.StartGRPCServer(ctx); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
 		}
 	}()
 
+	// Start HTTP server with gRPC gateway
+	go func() {
+		log.Printf("HTTP server listening on port %d", cfg.HTTPPort)
+		server := &http.Server{
+			Addr:         ":" + strconv.Itoa(cfg.HTTPPort),
+			Handler:      application,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("shutdown: %v", err)
-	}
+	log.Println("Shutting down...")
 }

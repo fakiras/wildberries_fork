@@ -7,14 +7,21 @@ import (
 
 type Config struct {
 	HTTPPort int
+	GRPCPort int
 	DSN      string
 }
 
 func Load() *Config {
-	port := 8080
+	httpPort := 8080
 	if p := os.Getenv("HTTP_PORT"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil {
-			port = v
+			httpPort = v
+		}
+	}
+	grpcPort := 7002
+	if p := os.Getenv("GRPC_PORT"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil {
+			grpcPort = v
 		}
 	}
 	dsn := os.Getenv("DATABASE_DSN")
@@ -22,7 +29,8 @@ func Load() *Config {
 		dsn = "postgres://localhost:5432/wildberries?sslmode=disable"
 	}
 	return &Config{
-		HTTPPort: port,
+		HTTPPort: httpPort,
+		GRPCPort: grpcPort,
 		DSN:      dsn,
 	}
 }
